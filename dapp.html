@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Tron DApp</title>
+</head>
+<body>
+    <h1>Welcome to My Tron DApp</h1>
+    <button onclick="connectWallet()">连接 TronLink</button>
+    <p id="status">未连接</p>
+
+    <script>
+        // 检查 TronLink 是否可用并尝试连接
+        async function connectWallet() {
+            if (window.tronWeb && window.tronWeb.defaultAddress) {
+                try {
+                    const address = window.tronWeb.defaultAddress.base58;
+                    document.getElementById("status").innerText = `已连接: ${address}`;
+                    console.log("Connected to TronLink:", address);
+                } catch (error) {
+                    console.error("连接失败:", error);
+                    document.getElementById("status").innerText = "连接失败";
+                }
+            } else {
+                document.getElementById("status").innerText = "请安装 TronLink 并登录";
+            }
+        }
+
+        // 页面加载时自动尝试连接
+        window.onload = function() {
+            setTimeout(connectWallet, 1000); // 延迟1秒，确保 TronLink 注入
+        };
+    </script>
+</body>
+</html>
