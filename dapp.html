@@ -10,27 +10,80 @@
     <button onclick="connectWallet()">连接 TronLink</button>
     <p id="status">未连接</p>
 
+    <h2>余额</h2>
+    <p id="balance">TRX 余额: 未查询</p>
+    <button onclick="getBalance()">查询 TRX 余额</button>
+
+    <h2>发送 TRX</h2>
+    <input id="toAddress" placeholder="接收地址" style="width: 300px;">
+    <input id="amount" placeholder="金额 (TRX)" type="number" style="width: 100px;">
+    <button onclick="sendTRX()">发送 TRX</button>
+    <p id="txStatus">交易状态: 未发送</p>
+
     <script>
-        // 检查 TronLink 是否可用并尝试连接
+        let tronWeb;
+
+        // 连接 TronLink
         async function connectWallet() {
             if (window.tronWeb && window.tronWeb.defaultAddress) {
                 try {
-                    const address = window.tronWeb.defaultAddress.base58;
+                    tronWeb = window.tronWeb;
+                    const address = tronWeb.defaultAddress.base58;
                     document.getElementById("status").innerText = `已连接: ${address}`;
                     console.log("Connected to TronLink:", address);
                 } catch (error) {
-                    console.error("连接失败:", error);
-                    document.getElementById("status").innerText = "连接失败";
+                    document.getElementById("status").innerText = "连接失败: " + error.message;
                 }
             } else {
                 document.getElementById("status").innerText = "请安装 TronLink 并登录";
             }
         }
 
-        // 页面加载时自动尝试连接
+        // 查询 TRX 余额
+        async function getBalance() {
+            if (!tronWeb) {
+                alert("请先连接 TronLink");
+                return;
+            }
+            try {
+                const address = tronWeb.defaultAddress.base58;
+                const balanceInSun = await tronWeb.trx.getBalance(address);
+                const balanceInTRX = tronWeb.fromSun(balanceInSun); // 转换为 TRX
+                document.getElementById("balance").innerText = `TRX 余额: ${balanceInTRX} TRX`;
+                console.log("余额:", balanceInTRX);
+            } catch (error) {
+                document.getElementById("balance").innerText = "查询失败: " + error.message;
+            }
+        }
+
+        // 发送 TRX
+        async function sendTRX() {
+            if (!tronWeb) {
+                alert("请先连接 TronLink");
+                return;
+            }
+            const toAddress = document.getElementById("toAddress").value;
+            const amount = document.getElementById("amount").value;
+            if (!toAddress || !amount) {
+                alert("请输入接收地址和金额");
+                return;
+            }
+            try {
+                const amountInSun = tronWeb.toSun(amount); // 转换为 Sun (1 TRX = 1e6 Sun)
+                const tx = await tronWeb.trx.sendTransaction(toAddress, amountInSun);
+                document.getElementById("txStatus").innerText = `交易成功: ${tx.txid}`;
+                console.log("交易ID:", tx.txid);
+            } catch (error) {
+                document.getElementById("txStatus").innerText = "交易失败: " + error.message;
+                console.error("交易失败:", error);
+            }
+        }
+
+        // 自动连接
         window.onload = function() {
-            setTimeout(connectWallet, 1000); // 延迟1秒，确保 TronLink 注入
+            setTimeout(connectWallet, 2000);
         };
     </script>
 </body>
 </html>
+
