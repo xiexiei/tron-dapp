@@ -4,6 +4,52 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>My Tron DApp</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            background-color: #f0f4f8;
+            margin: 20px;
+        }
+        h1 {
+            color: #2c3e50;
+        }
+        h2 {
+            color: #34495e;
+            margin-top: 20px;
+        }
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            background-color: #3498db;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #2980b9;
+        }
+        input {
+            padding: 8px;
+            margin: 5px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        #toAddress, #trc20ToAddress {
+            width: 300px;
+        }
+        #amount, #trc20Amount {
+            width: 100px;
+        }
+        p {
+            font-size: 16px;
+            color: #555;
+        }
+        #status, #balance, #txStatus, #trc20Balance, #trc20TxStatus {
+            font-weight: bold;
+        }
+    </style>
 </head>
 <body>
     <h1>Welcome to My Tron DApp</h1>
@@ -15,22 +61,28 @@
     <button onclick="getBalance()">查询 TRX 余额</button>
 
     <h2>发送 TRX</h2>
-    <input id="toAddress" placeholder="接收地址" style="width: 300px;">
-    <input id="amount" placeholder="金额 (TRX)" type="number" style="width: 100px;">
+    <input id="toAddress" placeholder="接收地址">
+    <input id="amount" placeholder="金额 (TRX)" type="number">
     <button onclick="sendTRX()">发送 TRX</button>
     <p id="txStatus">交易状态: 未发送</p>
+
+    <h2>TRC20 (USDT)</h2>
+    <p id="trc20Balance">USDT 余额: 未查询</p>
+    <button onclick="getTRC20Balance()">查询 USDT 余额</button>
+    <input id="trc20ToAddress" placeholder="接收地址">
+    <input id="trc20Amount" placeholder="金额 (USDT)" type="number">
+    <button onclick="sendTRC20()">发送 USDT</button>
+    <p id="trc20TxStatus">交易状态: 未发送</p>
 
     <script>
         let tronWeb;
 
-        // 连接 TronLink
         async function connectWallet() {
             if (window.tronWeb && window.tronWeb.defaultAddress) {
                 try {
                     tronWeb = window.tronWeb;
                     const address = tronWeb.defaultAddress.base58;
                     document.getElementById("status").innerText = `已连接: ${address}`;
-                    console.log("Connected to TronLink:", address);
                 } catch (error) {
                     document.getElementById("status").innerText = "连接失败: " + error.message;
                 }
@@ -39,7 +91,6 @@
             }
         }
 
-        // 查询 TRX 余额
         async function getBalance() {
             if (!tronWeb) {
                 alert("请先连接 TronLink");
@@ -48,15 +99,13 @@
             try {
                 const address = tronWeb.defaultAddress.base58;
                 const balanceInSun = await tronWeb.trx.getBalance(address);
-                const balanceInTRX = tronWeb.fromSun(balanceInSun); // 转换为 TRX
+                const balanceInTRX = tronWeb.fromSun(balanceInSun);
                 document.getElementById("balance").innerText = `TRX 余额: ${balanceInTRX} TRX`;
-                console.log("余额:", balanceInTRX);
             } catch (error) {
                 document.getElementById("balance").innerText = "查询失败: " + error.message;
             }
         }
 
-        // 发送 TRX
         async function sendTRX() {
             if (!tronWeb) {
                 alert("请先连接 TronLink");
@@ -69,21 +118,55 @@
                 return;
             }
             try {
-                const amountInSun = tronWeb.toSun(amount); // 转换为 Sun (1 TRX = 1e6 Sun)
+                const amountInSun = tronWeb.toSun(amount);
                 const tx = await tronWeb.trx.sendTransaction(toAddress, amountInSun);
                 document.getElementById("txStatus").innerText = `交易成功: ${tx.txid}`;
-                console.log("交易ID:", tx.txid);
             } catch (error) {
                 document.getElementById("txStatus").innerText = "交易失败: " + error.message;
-                console.error("交易失败:", error);
             }
         }
 
-        // 自动连接
+        async function getTRC20Balance() {
+            if (!tronWeb) {
+                alert("请先连接 TronLink");
+                return;
+            }
+            const contractAddress = "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t"; // USDT TRC20
+            try {
+                const contract = await tronWeb.contract().at(contractAddress);
+                const balance = await contract.balanceOf(tronWeb.defaultAddress.base58).call();
+                const balanceInUSDT = balance / 1e6;
+                document.getElementById("trc20Balance").innerText = `USDT 余额: ${balanceInUSDT} USDT`;
+            } catch (error) {
+                document.getElementById("trc20Balance").innerText = "查询失败: " + error.message;
+            }
+        }
+
+        async function sendTRC20() {
+            if (!tronWeb) {
+                alert("请先连接 TronLink");
+                return;
+            }
+            const toAddress = document.getElementById("trc20ToAddress").value;
+            const amount = document.getElementById("trc20Amount").value;
+            const contractAddress = "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t"; // USDT TRC20
+            if (!toAddress || !amount) {
+                alert("请输入接收地址和金额");
+                return;
+            }
+            try {
+                const contract = await tronWeb.contract().at(contractAddress);
+                const amountInUnits = amount * 1e6;
+                const tx = await contract.transfer(toAddress, amountInUnits).send();
+                document.getElementById("trc20TxStatus").innerText = `交易成功: ${tx}`;
+            } catch (error) {
+                document.getElementById("trc20TxStatus").innerText = "交易失败: " + error.message;
+            }
+        }
+
         window.onload = function() {
             setTimeout(connectWallet, 2000);
         };
     </script>
 </body>
 </html>
-
