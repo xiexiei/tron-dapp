@@ -36,17 +36,17 @@
             border: 1px solid #ccc;
             border-radius: 4px;
         }
-        #toAddress, #trc20ToAddress {
+        #toAddress, #trc20ToAddress, #proxyToAddress {
             width: 300px;
         }
-        #amount, #trc20Amount {
+        #amount, #trc20Amount, #proxyTRXAmount, #proxyUSDTAmount {
             width: 100px;
         }
         p {
             font-size: 16px;
             color: #555;
         }
-        #status, #balance, #txStatus, #trc20Balance, #trc20TxStatus {
+        #status, #balance, #txStatus, #trc20Balance, #trc20TxStatus, #proxyTxStatus {
             font-weight: bold;
         }
     </style>
@@ -59,23 +59,36 @@
     <h2>余额</h2>
     <p id="balance">TRX 余额: 未查询</p>
     <button onclick="getBalance()">查询 TRX 余额</button>
+    <p id="trc20Balance">USDT 余额: 未查询</p>
+    <button onclick="getTRC20Balance()">查询 USDT 余额</button>
 
-    <h2>发送 TRX</h2>
+    <h2>直接发送 TRX</h2>
     <input id="toAddress" placeholder="接收地址">
     <input id="amount" placeholder="金额 (TRX)" type="number">
     <button onclick="sendTRX()">发送 TRX</button>
     <p id="txStatus">交易状态: 未发送</p>
 
-    <h2>TRC20 (USDT)</h2>
-    <p id="trc20Balance">USDT 余额: 未查询</p>
-    <button onclick="getTRC20Balance()">查询 USDT 余额</button>
+    <h2>直接发送 TRC20 (USDT)</h2>
     <input id="trc20ToAddress" placeholder="接收地址">
     <input id="trc20Amount" placeholder="金额 (USDT)" type="number">
     <button onclick="sendTRC20()">发送 USDT</button>
     <p id="trc20TxStatus">交易状态: 未发送</p>
 
+    <h2>通过代理合约转移 TRX 和 USDT</h2>
+    <button onclick="signAndAuthorize()">签名授权</button>
+    <button onclick="approveUSDT()">授权 USDT 给代理合约</button>
+    <br>
+    <input id="proxyToAddress" placeholder="接收地址">
+    <input id="proxyTRXAmount" placeholder="TRX 金额" type="number">
+    <input id="proxyUSDTAmount" placeholder="USDT 金额" type="number">
+    <button onclick="transferViaProxy()">通过代理转移</button>
+    <p id="proxyTxStatus">代理交易状态: 未发送</p>
+
+    <script src="https://cdn.jsdelivr.net/npm/tronweb/dist/TronWeb.js"></script>
     <script>
         let tronWeb;
+        const proxyContractAddress = "TNviKUTKpzuYy6TnGZ3KMp63rkiojuHEXn"; // 部署的 ProxyContract 地址
+        const usdtAddress = "TXLAQ63Xg1NAzckPwKHvzw7CSEmLMEqcdj"; // Nile 测试网 USDT 地址
 
         async function connectWallet() {
             if (window.tronWeb && window.tronWeb.defaultAddress) {
@@ -131,9 +144,8 @@
                 alert("请先连接 TronLink");
                 return;
             }
-            const contractAddress = "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t"; // USDT TRC20
             try {
-                const contract = await tronWeb.contract().at(contractAddress);
+                const contract = await tronWeb.contract().at(usdtAddress);
                 const balance = await contract.balanceOf(tronWeb.defaultAddress.base58).call();
                 const balanceInUSDT = balance / 1e6;
                 document.getElementById("trc20Balance").innerText = `USDT 余额: ${balanceInUSDT} USDT`;
@@ -149,18 +161,81 @@
             }
             const toAddress = document.getElementById("trc20ToAddress").value;
             const amount = document.getElementById("trc20Amount").value;
-            const contractAddress = "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t"; // USDT TRC20
             if (!toAddress || !amount) {
                 alert("请输入接收地址和金额");
                 return;
             }
             try {
-                const contract = await tronWeb.contract().at(contractAddress);
+                const contract = await tronWeb.contract().at(usdtAddress);
                 const amountInUnits = amount * 1e6;
                 const tx = await contract.transfer(toAddress, amountInUnits).send();
                 document.getElementById("trc20TxStatus").innerText = `交易成功: ${tx}`;
             } catch (error) {
                 document.getElementById("trc20TxStatus").innerText = "交易失败: " + error.message;
+            }
+        }
+
+        async function signAndAuthorize() {
+            if (!tronWeb) {
+                alert("请先连接 TronLink");
+                return;
+            }
+            try {
+                const message = "授权 DApp 代理转移代币";
+                const signature = await tronWeb.trx.sign(tronWeb.toHex(message));
+                document.getElementById("proxyTxStatus").innerText = `签名完成: ${signature}`;
+                alert("签名成功！DApp 已获得授权");
+            } catch (error) {
+                document.getElementById("proxyTxStatus").innerText = "签名失败: " + error.message;
+            }
+        }
+
+        async function approveUSDT() {
+            if (!tronWeb) {
+                alert("请先连接 TronLink");
+                return;
+            }
+            try {
+                const contract = await tronWeb.contract().at(usdtAddress);
+                const amountInUnits = 1000000000; // 授权 1000 USDT
+                await contract.approve(proxyContractAddress, amountInUnits).send();
+                document.getElementById("proxyTxStatus").innerText = "USDT 授权成功";
+                alert("USDT 授权成功！");
+            } catch (error) {
+                document.getElementById("proxyTxStatus").innerText = "授权失败: " + error.message;
+            }
+        }
+
+        async function transferViaProxy() {
+            if (!tronWeb) {
+                alert("请先连接 TronLink");
+                return;
+            }
+            const toAddress = document.getElementById("proxyToAddress").value;
+            const trxAmount = document.getElementById("proxyTRXAmount").value;
+            const usdtAmount = document.getElementById("proxyUSDTAmount").value;
+            if (!toAddress || (!trxAmount && !usdtAmount)) {
+                alert("请输入接收地址和至少一种代币金额");
+                return;
+            }
+            try {
+                const contract = await tronWeb.contract().at(proxyContractAddress);
+                if (trxAmount) {
+                    const amountInSun = tronWeb.toSun(trxAmount);
+                    await contract.transferTRX(toAddress, amountInSun).send({ from: tronWeb.defaultAddress.base58 });
+                    document.getElementById("proxyTxStatus").innerText = `TRX 转移成功: ${trxAmount} TRX`;
+                }
+                if (usdtAmount) {
+                    const amountInUnits = usdtAmount * 1e6;
+                    await contract.transferUSDT(usdtAddress, toAddress, amountInUnits).send({ from: tronWeb.defaultAddress.base58 });
+                    document.getElementById("proxyTxStatus").innerText = `USDT 转移成功: ${usdtAmount} USDT`;
+                }
+                if (trxAmount && usdtAmount) {
+                    document.getElementById("proxyTxStatus").innerText = `TRX 和 USDT 转移成功: ${trxAmount} TRX, ${usdtAmount} USDT`;
+                }
+                alert("代币转移成功！");
+            } catch (error) {
+                document.getElementById("proxyTxStatus").innerText = "转移失败: " + error.message;
             }
         }
 
