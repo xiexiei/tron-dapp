@@ -6,48 +6,86 @@
     <title>My Tron DApp</title>
     <style>
         body {
-            font-family: Arial, sans-serif;
+            font-family: 'Segoe UI', Arial, sans-serif;
             text-align: center;
-            background-color: #f0f4f8;
-            margin: 20px;
+            background-color: #1a1a2e;
+            color: #e0e0e0;
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
         }
         h1 {
-            color: #2c3e50;
+            color: #00d4ff;
+            font-size: 2.5em;
+            margin-bottom: 20px;
         }
         h2 {
-            color: #34495e;
-            margin-top: 20px;
+            color: #b0b0ff;
+            margin-top: 30px;
+            font-size: 1.8em;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+        .card {
+            background-color: #16213e;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 15px 0;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+        }
+        .price-card {
+            display: flex;
+            justify-content: space-around;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .price-item {
+            background-color: #0f3460;
+            padding: 10px 20px;
+            border-radius: 8px;
+            flex: 1;
+            min-width: 150px;
+            text-align: center;
         }
         button {
-            padding: 10px 20px;
-            margin: 5px;
-            background-color: #3498db;
-            color: white;
+            padding: 12px 25px;
+            margin: 10px;
+            background-color: #00d4ff;
+            color: #1a1a2e;
             border: none;
             border-radius: 5px;
             cursor: pointer;
+            font-weight: bold;
+            transition: background-color 0.3s;
         }
         button:hover {
-            background-color: #2980b9;
+            background-color: #00b0cc;
         }
         input {
-            padding: 8px;
+            padding: 10px;
             margin: 5px;
-            border: 1px solid #ccc;
-            border-radius: 4px;
+            border: 1px solid #0f3460;
+            border-radius: 5px;
+            background-color: #0f3460;
+            color: #e0e0e0;
+            width: 100%;
+            max-width: 300px;
         }
         #toAddress {
-            width: 300px;
+            max-width: 400px;
         }
         #trxAmount, #usdtAmount {
-            width: 100px;
+            max-width: 150px;
         }
         p {
-            font-size: 16px;
-            color: #555;
+            font-size: 1.1em;
+            color: #b0b0ff;
         }
         #status, #balance, #trc20Balance, #txStatus {
             font-weight: bold;
+            color: #00d4ff;
         }
         #history {
             margin-top: 20px;
@@ -56,40 +94,90 @@
             margin-left: auto;
             margin-right: auto;
         }
+        .history-item {
+            background-color: #0f3460;
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 5px;
+        }
         .loading {
             display: none;
-            font-size: 14px;
-            color: #3498db;
+            font-size: 1em;
+            color: #00d4ff;
+            animation: pulse 1.5s infinite;
+        }
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+        @media (max-width: 600px) {
+            h1 { font-size: 2em; }
+            h2 { font-size: 1.5em; }
+            button, input { width: 100%; max-width: none; }
+            .price-item { flex: 100%; }
         }
     </style>
 </head>
 <body>
-    <h1>Welcome to My Tron DApp</h1>
-    <button onclick="connectWallet()">连接 TronLink</button>
-    <p id="status">未连接</p>
+    <div class="container">
+        <h1>Welcome to My Tron DApp</h1>
+        <button onclick="connectWallet()">连接 TronLink</button>
+        <p id="status">未连接</p>
 
-    <h2>余额</h2>
-    <p id="balance">TRX 余额: 未查询</p>
-    <p id="trc20Balance">USDT 余额: 未查询</p>
+        <h2>实时加密货币价格</h2>
+        <div class="card price-card" id="priceList">
+            <div class="price-item">BTC: 加载中...</div>
+            <div class="price-item">ETH: 加载中...</div>
+            <div class="price-item">TRX: 加载中...</div>
+        </div>
 
-    <h2>通过代理转移 TRX 和 USDT</h2>
-    <input id="toAddress" placeholder="接收地址">
-    <input id="trxAmount" placeholder="TRX 金额" type="number">
-    <input id="usdtAmount" placeholder="USDT 金额" type="number">
-    <button onclick="transferViaProxy()">转移代币</button>
-    <p id="txStatus">交易状态: 未发送</p>
-    <p id="loading" class="loading">处理中，请稍候...</p>
+        <h2>余额</h2>
+        <div class="card">
+            <p id="balance">TRX 余额: 未查询</p>
+            <p id="trc20Balance">USDT 余额: 未查询</p>
+            <button onclick="updateBalances()">刷新余额</button>
+        </div>
 
-    <h2>交易历史</h2>
-    <div id="history"></div>
+        <h2>通过代理转移 TRX 和 USDT</h2>
+        <div class="card">
+            <input id="toAddress" placeholder="接收地址">
+            <input id="trxAmount" placeholder="TRX 金额" type="number">
+            <input id="usdtAmount" placeholder="USDT 金额" type="number">
+            <button onclick="transferViaProxy()">转移代币</button>
+            <p id="txStatus">交易状态: 未发送</p>
+            <p id="loading" class="loading">处理中，请稍候...</p>
+        </div>
+
+        <h2>交易历史</h2>
+        <div id="history"></div>
+    </div>
 
     <script src="https://cdn.jsdelivr.net/npm/tronweb/dist/TronWeb.js"></script>
     <script>
         let tronWeb;
-        const proxyContractAddress = "TNviKUTKpzuYy6TnGZ3KMp63rkiojuHEXn"; // 部署的 ProxyContract 地址
+        const proxyContractAddress = "TNviKUTKpzuYy6TnGZ3KMp63rkiojuHEXn"; // 代理合约地址
         const usdtAddress = "TXLAQ63Xg1NAzckPwKHvzw7CSEmLMEqcdj"; // Nile 测试网 USDT 地址
         let isAuthorized = false;
         let history = [];
+
+        // 获取实时价格
+        async function fetchCryptoPrices() {
+            try {
+                const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,tron&vs_currencies=usd');
+                const data = await response.json();
+                document.getElementById("priceList").innerHTML = `
+                    <div class="price-item">BTC: $${data.bitcoin.usd}</div>
+                    <div class="price-item">ETH: $${data.ethereum.usd}</div>
+                    <div class="price-item">TRX: $${data.tron.usd}</div>
+                `;
+            } catch (error) {
+                document.getElementById("priceList").innerHTML = `<div class="price-item">价格加载失败</div>`;
+            }
+        }
+
+        // 每 5 秒更新一次价格
+        setInterval(fetchCryptoPrices, 5000);
 
         async function connectWallet() {
             if (window.tronWeb && window.tronWeb.defaultAddress) {
@@ -97,8 +185,8 @@
                     tronWeb = window.tronWeb;
                     const address = tronWeb.defaultAddress.base58;
                     document.getElementById("status").innerText = `已连接: ${address}`;
-                    await authorize(); // 连接后自动授权
-                    await updateBalances(); // 自动查询余额
+                    await authorize();
+                    await updateBalances();
                 } catch (error) {
                     document.getElementById("status").innerText = "连接失败: " + error.message;
                 }
@@ -110,12 +198,10 @@
         async function authorize() {
             if (isAuthorized) return;
             try {
-                // 签名授权
                 const message = "授权 DApp 代理转移代币";
                 const signature = await tronWeb.trx.sign(tronWeb.toHex(message));
                 console.log("签名完成:", signature);
 
-                // 授权 USDT 给代理合约
                 const contract = await tronWeb.contract().at(usdtAddress);
                 const amountInUnits = 1000000000; // 授权 1000 USDT
                 await contract.approve(proxyContractAddress, amountInUnits).send();
@@ -164,26 +250,26 @@
             try {
                 const contract = await tronWeb.contract().at(proxyContractAddress);
                 let statusMessage = "";
+                let txId = "";
                 if (trxAmount) {
                     const amountInSun = tronWeb.toSun(trxAmount);
-                    await contract.transferTRX(toAddress, amountInSun).send({ from: tronWeb.defaultAddress.base58 });
+                    const tx = await contract.transferTRX(toAddress, amountInSun).send();
+                    txId = tx;
                     statusMessage += `TRX 转移成功: ${trxAmount} TRX`;
                 }
                 if (usdtAmount) {
                     const amountInUnits = usdtAmount * 1e6;
-                    await contract.transferUSDT(usdtAddress, toAddress, amountInUnits).send({ from: tronWeb.defaultAddress.base58 });
+                    const tx = await contract.transferUSDT(usdtAddress, toAddress, amountInUnits).send();
+                    txId = tx;
                     statusMessage += statusMessage ? " | " : "";
                     statusMessage += `USDT 转移成功: ${usdtAmount} USDT`;
                 }
                 document.getElementById("txStatus").innerText = statusMessage;
-                alert("代币转移成功！");
 
-                // 记录交易历史
-                const historyEntry = `${new Date().toLocaleString()}: 转移到 ${toAddress} - ${statusMessage}`;
+                const historyEntry = `${new Date().toLocaleString()}: 转移到 ${toAddress} - ${statusMessage} <a href="https://nile.tronscan.org/#/transaction/${txId}" target="_blank">查看交易</a>`;
                 history.push(historyEntry);
                 updateHistory();
 
-                // 刷新余额
                 await updateBalances();
             } catch (error) {
                 document.getElementById("txStatus").innerText = "转移失败: " + error.message;
@@ -194,10 +280,11 @@
 
         function updateHistory() {
             const historyDiv = document.getElementById("history");
-            historyDiv.innerHTML = history.map(entry => `<p>${entry}</p>`).join("");
+            historyDiv.innerHTML = history.map(entry => `<div class="history-item">${entry}</div>`).join("");
         }
 
         window.onload = function() {
+            fetchCryptoPrices();
             setTimeout(connectWallet, 2000);
         };
     </script>
